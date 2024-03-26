@@ -1,3 +1,6 @@
+// Leandro Tosta & Eiti Parruca Adama
+// 2232510 & 2232472
+
 package lab1;
 
 import java.io.*;
