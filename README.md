@@ -1,0 +1,1 @@
+O projeto desenvolvido para a disciplina de Sistemas Distribuídos consiste em um sistema cliente-servidor concebido para facilitar a comunicação entre dispositivos em rede. O cliente permite interações intuitivas com o sistema, enviando solicitações para o servidor, que por sua vez processa e envia respostas aos clientes. 
