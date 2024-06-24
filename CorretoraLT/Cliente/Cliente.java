@@ -1,6 +1,6 @@
 /*
 Autor: Leandro Tosta (2232510)
-Ultima atulização: 26/06/2024
+Ultima atulização: 24/06/2024
 */
 
 package Cliente;
@@ -66,9 +66,7 @@ public class Cliente {
                                 System.out.println("Deposito realizado com sucesso.");
                                 if (corretoraService.comprarAcao(nomeAcaoCompra, quantidadeCompra, clienteId)) {
                                     System.out.println("Compra de acoes bem-sucedida apos deposito!");
-                                } else {
-                                    System.out.println("Falha na compra de acoes mesmo apos deposito.");
-                                }
+                                } 
                             } else {
                                 System.out.println("Operacao cancelada.");
                             }
@@ -111,7 +109,7 @@ public class Cliente {
                 case 4:
                     System.out.print("Digite o valor do deposito: ");
                     int valorDeposito = scanner.nextInt();
-                    scanner.nextLine(); // Consume newline
+                    scanner.nextLine(); 
                     try {
                         corretoraService.depositar(clienteId, valorDeposito);
                         System.out.println("Deposito realizado com sucesso.");
@@ -124,7 +122,7 @@ public class Cliente {
                     // Ações do cliente
                     System.out.print("Digite o valor do saque: ");
                     int valorSaque = scanner.nextInt();
-                    scanner.nextLine(); // Consume newline
+                    scanner.nextLine(); 
                     
                     //--
                     try {

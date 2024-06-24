@@ -1,8 +1,7 @@
 /*
 Autor: Leandro Tosta (2232510)
-Ultima atulização: 26/06/2024
+Ultima atulização: 24/06/2024
 */
-
 package Servidor;
 
 import Controle_Concorrencia.ControleConcorrencia;
@@ -43,35 +42,26 @@ public class CorretoraImpl extends UnicastRemoteObject implements InterfaceCorre
     @Override
     public synchronized boolean comprarAcao(String nomeAcao, int quantidade, String transacao) throws RemoteException {
         int saldo = saldoClientes.getOrDefault(transacao, 0);
-
-        if (controleConcorrencia.verificarTranca("saldo", transacao)) {
-            System.out.println("Operacao bloqueada por saldo insuficiente.");
+        int preco = obterPrecoAcao(nomeAcao) * quantidade;
+        
+        if(saldo < preco && saldo == 0){
+            controleConcorrencia.adquirirTrancaEscrita(nomeAcao, transacao);
+            System.out.println("Cliente " + transacao + " nao possui saldo suficiente. Compra de acoes esta travada.");
             return false;
         }
-
-        if (saldo == 0) {
-            System.out.println("Cliente " + transacao + " esta com saldo zerado. Compra de acoes esta travada.");
-            controleConcorrencia.adquirirTrancaEscrita("saldo", transacao); // Adquire a tranca quando o saldo for zero
-            return false;
-        }
-
-        if (controleConcorrencia.adquirirTrancaEscrita(nomeAcao, transacao)) {
-            try {
-                int preco = obterPrecoAcao(nomeAcao) * quantidade;
-                if (saldo >= preco) {
-                    saldoClientes.put(transacao, saldo - preco);
-                    carteiraClientes.putIfAbsent(transacao, new HashMap<>());
-                    carteiraClientes.get(transacao).put(nomeAcao, carteiraClientes.get(transacao).getOrDefault(nomeAcao, 0) + quantidade);
-                    // Verifica se o cliente agora possui ações e, em caso afirmativo, libera a tranca
-                    if (carteiraClientes.get(transacao).size() > 0) {
-                        controleConcorrencia.liberarTranca("carteira", transacao);
-                    }
-                    return true;
-                }
-            } finally {
-                controleConcorrencia.liberarTranca(nomeAcao, transacao);
+        
+        if (saldo >= preco && controleConcorrencia.adquirirTrancaEscrita(nomeAcao, transacao)) {
+            saldoClientes.put(transacao, saldo - preco);
+            carteiraClientes.putIfAbsent(transacao, new HashMap<>());
+            carteiraClientes.get(transacao).put(nomeAcao, carteiraClientes.get(transacao).getOrDefault(nomeAcao, 0) + quantidade);
+                    
+            // Verifica se o cliente agora possui ações e, em caso afirmativo, libera a tranca
+            if (carteiraClientes.get(transacao).size() > 0) {
+                controleConcorrencia.liberarTranca("carteira", transacao);
             }
-        }
+            return true;
+        } 
+        System.out.println("Cliente " + transacao + " nao possui saldo suficiente. Compra de acoes esta travada.");
         return false;
     }
 
@@ -81,13 +71,8 @@ public class CorretoraImpl extends UnicastRemoteObject implements InterfaceCorre
 
         int quantidadeAtual = carteira.getOrDefault(nomeAcao, 0);
         if (quantidadeAtual < quantidade) {
+            controleConcorrencia.adquirirTrancaEscrita(nomeAcao, transacao);
             System.out.println("Cliente " + transacao + " nao possui a acao " + nomeAcao + ". Venda de acoes esta travada.");
-            return false;
-        }
-
-        if (carteira.isEmpty()) {
-            System.out.println("Cliente " + transacao + " nao possui nenhuma acao. Venda de acoes esta travada.");
-            controleConcorrencia.adquirirTrancaEscrita("carteira", transacao);
             return false;
         }
 
@@ -112,24 +97,16 @@ public class CorretoraImpl extends UnicastRemoteObject implements InterfaceCorre
     public synchronized boolean sacar(String transacao, int valor) throws RemoteException {
         int saldo = saldoClientes.getOrDefault(transacao, 0);
         
-         if (controleConcorrencia.verificarTranca("saldo", transacao)) {
-            System.out.println("Operacao bloqueada por saldo insuficiente.");
-            return false;
+        if(saldo == 0){
+            controleConcorrencia.adquirirTrancaEscrita("saldo", transacao);
         }
-
-        if (saldo < valor) {
-            System.out.println("Cliente " + transacao + " nao tem saldo suficiente. Saque esta travado.");
-            return false;
+        
+        if (controleConcorrencia.adquirirTrancaEscrita("saldo", transacao) && saldo >= valor) {
+            saldoClientes.put(transacao, saldo - valor);
+            return true; 
         }
-
-        if (controleConcorrencia.adquirirTrancaEscrita("saldo", transacao)) {
-            try {
-                saldoClientes.put(transacao, saldo - valor);
-                return true;
-            } finally {
-                controleConcorrencia.liberarTranca("saldo", transacao);
-            }
-        }
+        
+        System.out.println("Cliente " + transacao + " nao tem saldo suficiente. Saque esta travado.");
         return false;
     }
 
@@ -151,18 +128,17 @@ public class CorretoraImpl extends UnicastRemoteObject implements InterfaceCorre
     public void depositar(String transacao, int valor) throws RemoteException {
         int saldoAtual = saldoClientes.getOrDefault(transacao, 0);
         saldoClientes.put(transacao, saldoAtual + valor);
-        System.out.println("Cliente " + transacao + " efetuou um deposito. Compra de acoes esta destravada.");
-
-        // Verifica se o saldo agora é maior que zero e, em caso afirmativo, libera a tranca
-        if (saldoAtual + valor > 0) {
+        
+        if(saldoAtual + valor > 0 && saldoAtual == 0){
             controleConcorrencia.liberarTranca("saldo", transacao);
+            System.out.println("Cliente " + transacao + " efetuou um deposito. Compra de acoes esta destravada.");
         }
     }
 
     @Override
     public void liberarTranca(String recurso, String transacao) throws RemoteException {
         controleConcorrencia.liberarTranca(recurso, transacao);
-        System.out.println("Tranca liberada para recurso: " + recurso + " e transacao: " + transacao);
+        System.out.println("Tranca liberada para recurso: " + recurso);
     }
 
     @Override
